@@ -28,6 +28,22 @@ jobs:
           channel: 'stable'
           cache: true
 
+      # Remove appambit_sdk_flutter - its native Android code is missing
+      # in v1.2.0 (main class not found). This is an optional analytics SDK.
+      - name: Remove broken plugin for CI build
+        run: |
+          sed -i '/appambit_sdk_flutter/d' pubspec.yaml
+          # Comment out the import and make the reporter a no-op
+          cat > lib/core/services/appambit_reporter.dart << 'DART'
+          import 'package:flutter/widgets.dart';
+          class AppAmbitReporter {
+            static bool get mustStartBeforeUi => false;
+            static List<NavigatorObserver> get navigatorObservers => const [];
+            static Future<void> start() async {}
+            static Future<void> reportError({required String message, dynamic exception, StackTrace? stackTrace}) async {}
+          }
+          DART
+
       - name: Install dependencies
         run: flutter pub get
 
