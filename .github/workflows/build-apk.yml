@@ -1,16 +1,23 @@
-name: Build APK
+name: Build and Release APK
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v2.7.4)'
+        required: true
+        type: string
+      release_notes:
+        description: 'Release notes'
+        required: false
+        default: 'Bug fixes and improvements'
+        type: string
 
 permissions:
   contents: write
 
 jobs:
-  build-apk:
+  build-and-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -28,12 +35,9 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # Remove appambit_sdk_flutter - its native Android code is missing
-      # in v1.2.0 (main class not found). This is an optional analytics SDK.
       - name: Remove broken plugin for CI build
         run: |
           sed -i '/appambit_sdk_flutter/d' pubspec.yaml
-          # Comment out the import and make the reporter a no-op
           cat > lib/core/services/appambit_reporter.dart << 'DART'
           import 'package:flutter/widgets.dart';
           class AppAmbitReporter {
@@ -47,22 +51,44 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build Release APK
+      - name: Build APKs (arm64-v8a, armeabi-v7a)
+        run: flutter build apk --release --flavor github --split-per-abi
+
+      - name: Build Universal APK
         run: flutter build apk --release --flavor github
 
-      - name: Collect APK
+      - name: Prepare APKs for release
         run: |
-          mkdir -p build/apk-output
-          if [ -f build/app/outputs/flutter-apk/app-github-release.apk ]; then
-            cp build/app/outputs/flutter-apk/app-github-release.apk build/apk-output/looper-player-release.apk
-          else
-            find build/app/outputs/ -name "*.apk" -exec cp {} build/apk-output/ \;
+          mkdir -p release-apks
+          dir=build/app/outputs/flutter-apk
+          
+          # Copy arm64-v8a APK
+          if [ -f "$dir/app-arm64-v8a-github-release.apk" ]; then
+            cp "$dir/app-arm64-v8a-github-release.apk" release-apks/looper-arm64-v8a.apk
+          elif [ -f "$dir/app-github-arm64-v8a-release.apk" ]; then
+            cp "$dir/app-github-arm64-v8a-release.apk" release-apks/looper-arm64-v8a.apk
           fi
-          ls -lh build/apk-output/
+          
+          # Copy armeabi-v7a APK
+          if [ -f "$dir/app-armeabi-v7a-github-release.apk" ]; then
+            cp "$dir/app-armeabi-v7a-github-release.apk" release-apks/looper-armeabi-v7a.apk
+          elif [ -f "$dir/app-github-armeabi-v7a-release.apk" ]; then
+            cp "$dir/app-github-armeabi-v7a-release.apk" release-apks/looper-armeabi-v7a.apk
+          fi
+          
+          # Copy universal APK
+          if [ -f "$dir/app-github-release.apk" ]; then
+            cp "$dir/app-github-release.apk" release-apks/looper-universal.apk
+          fi
+          
+          echo "=== Built APKs ==="
+          ls -lh release-apks/
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: looper-apk
-          path: build/apk-output/*.apk
-          retention-days: 30
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ github.event.inputs.version }} \
+            release-apks/*.apk \
+            --title "Looper Player ${{ github.event.inputs.version }}" \
+            --notes "${{ github.event.inputs.release_notes }}"
