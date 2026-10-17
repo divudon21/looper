@@ -1,5 +1,112 @@
 part of 'theme_settings_tiles.dart';
 
+class FontStyleSelectionTile extends ConsumerWidget {
+  const FontStyleSelectionTile({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+    final currentFont = settings.customFontFamily;
+    
+    // 5 preset font styles with good visual differences
+    final fontStyles = [
+      {'name': 'Default', 'font': AppFonts.stackSansText, 'desc': 'Clean & Modern'},
+      {'name': 'Elegant', 'font': AppFonts.jost, 'desc': 'Geometric & Refined'},
+      {'name': 'Bold', 'font': AppFonts.poppins, 'desc': 'Strong & Rounded'},
+      {'name': 'Technical', 'font': AppFonts.spaceGrotesk, 'desc': 'Modern & Precise'},
+      {'name': 'Friendly', 'font': 'Plus Jakarta Sans', 'desc': 'Warm & Approachable'},
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ListTile(
+          leading: const Icon(LucideIcons.font, color: Colors.white70),
+          title: Text('Font Style', style: _tileTitleStyle()),
+          subtitle: Text(
+            'Choose a preset font style',
+            style: _tileSubtitleStyle(),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Column(
+            children: fontStyles.map((style) {
+              final isSelected = currentFont == style['font'];
+              final accentColor = Color(settings.accentColor);
+              
+              return GestureDetector(
+                onTap: () {
+                  AppHaptics.light();
+                  ref.read(settingsProvider.notifier).updateCustomFontFamily(style['font'] as String);
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8.0),
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? accentColor.withValues(alpha: 0.15)
+                        : Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected
+                          ? accentColor
+                          : Colors.white.withValues(alpha: 0.08),
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            style['name'] as String,
+                            style: AppFonts.familyStyle(
+                              style['font'] as String,
+                              color: isSelected ? accentColor : Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Spacer(),
+                          if (isSelected)
+                            Icon(
+                              LucideIcons.check,
+                              color: accentColor,
+                              size: 20,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'The quick brown fox jumps over the lazy dog',
+                        style: AppFonts.familyStyle(
+                          style['font'] as String,
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        style['desc'] as String,
+                        style: AppFonts.jostStyle(
+                          color: Colors.white38,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class UseNewFontTile extends ConsumerWidget {
   const UseNewFontTile({super.key});
 

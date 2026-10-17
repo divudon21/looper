@@ -294,6 +294,12 @@ extension _SettingsSearch on _SettingsViewState {
       ),
       if (settings.useNewFont) ...[
         SettingsSearchItem(
+          title: 'Font Style',
+          subtitle: 'Choose a preset font style',
+          category: '${l10n.theme} · ${l10n.themeGroupFonts}',
+          widget: const FontStyleSelectionTile(),
+        ),
+        SettingsSearchItem(
           title: l10n.selectFontFamily,
           subtitle: l10n.activeFont(settings.customFontFamily),
           category: '${l10n.theme} · ${l10n.themeGroupFonts}',

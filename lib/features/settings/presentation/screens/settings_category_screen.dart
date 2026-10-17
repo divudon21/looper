@@ -125,6 +125,8 @@ class SettingsCategoryScreen extends ConsumerWidget {
           tiles: [
             const UseNewFontTile(),
             if (settings.useNewFont) ...[
+              const FontStyleSelectionTile(),
+              const Divider(height: 1, indent: 72, color: Colors.white10),
               const FontFamilySelectionTile(),
               const FontWeightSelectionTile(),
             ],
