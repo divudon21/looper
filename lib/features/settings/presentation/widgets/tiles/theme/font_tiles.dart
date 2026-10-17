@@ -21,7 +21,7 @@ class FontStyleSelectionTile extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ListTile(
-          leading: const Icon(LucideIcons.font, color: Colors.white70),
+          leading: const Icon(LucideIcons.type, color: Colors.white70),
           title: Text('Font Style', style: _tileTitleStyle()),
           subtitle: Text(
             'Choose a preset font style',
