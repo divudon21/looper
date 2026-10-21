@@ -68,6 +68,9 @@ dependencies:
   skeletonizer: ^3.0.0
   crypto: ^3.0.7
 
+  # YouTube Music Integration
+  youtube_explode_dart: ^3.1.0
+
 
 dev_dependencies:
   flutter_test:

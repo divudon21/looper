@@ -28,6 +28,7 @@ import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:looper_player/core/utils/l10n.dart';
+import 'package:looper_player/features/youtube_music/services/youtube_player_integration.dart';
 
 part 'playback_notifier.g.dart';
 part 'playback_state.dart';
@@ -664,15 +665,59 @@ class Playback extends _$Playback {
       }
     }
 
+    // Handle YouTube tracks - resolve to stream URL
+    Song songToPlay = song;
+    if (song.path.startsWith('youtube://')) {
+      try {
+        debugPrint('[Playback] Resolving YouTube URL for: ${song.title}');
+        final ytIntegration = YouTubePlayerIntegration();
+        final streamUrl = await ytIntegration.resolveYouTubeUrl(song.path);
+        
+        // Create a new song object with the resolved URL
+        songToPlay = Song()
+          ..id = song.id
+          ..path = streamUrl
+          ..title = song.title
+          ..artist = song.artist
+          ..album = song.album
+          ..genre = song.genre
+          ..duration = song.duration
+          ..trackNumber = song.trackNumber
+          ..year = song.year
+          ..artPath = song.artPath
+          ..dateAdded = song.dateAdded
+          ..playCount = song.playCount
+          ..lastPlayed = song.lastPlayed
+          ..totalListenedMs = song.totalListenedMs
+          ..lastPositionMs = song.lastPositionMs
+          ..isFavorite = song.isFavorite
+          ..lyrics = song.lyrics
+          ..hasCustomEqualizer = song.hasCustomEqualizer
+          ..equalizerGains = song.equalizerGains
+          ..lyricsOffsetMs = song.lyricsOffsetMs
+          ..needsEnrichment = song.needsEnrichment;
+          
+        debugPrint('[Playback] YouTube URL resolved successfully');
+      } catch (e, stack) {
+        debugPrint('[Playback] Failed to resolve YouTube URL: $e');
+        debugPrint('[Playback] Stack: $stack');
+        _showErrorSnackBar(
+          'Failed to load YouTube stream: ${song.title}. Please try again.',
+          (l10n) => l10n.playbackFailedCorrupted(song.title),
+        );
+        return;
+      }
+    }
+
     final isUrl =
-        song.path.startsWith('http://') || song.path.startsWith('https://');
+        songToPlay.path.startsWith('http://') || songToPlay.path.startsWith('https://');
     if (!isUrl) {
       await _requestStoragePermissions();
-      final file = File(song.path);
+      final file = File(songToPlay.path);
       if (!await file.exists()) {
         _showErrorSnackBar(
-          'File not found or inaccessible: ${song.title}',
-          (l10n) => l10n.fileNotFoundOrInaccessible(song.title),
+          'File not found or inaccessible: ${songToPlay.title}',
+          (l10n) => l10n.fileNotFoundOrInaccessible(songToPlay.title),
         );
         return;
       }
@@ -685,7 +730,7 @@ class Playback extends _$Playback {
 
     try {
       await _playDirect(
-        song,
+        songToPlay,
         crossfadeId,
         play: play,
         initialPosition: initialPosition,
@@ -695,7 +740,7 @@ class Playback extends _$Playback {
       if (crossfadeId == _activeCrossfadeId) {
         try {
           await _playDirect(
-            song,
+            songToPlay,
             crossfadeId,
             play: play,
             initialPosition: initialPosition,
@@ -703,13 +748,13 @@ class Playback extends _$Playback {
           );
         } catch (retryError, stack) {
           LoggerHelper.write(
-            'Playback failed permanently for: ${song.path}',
+            'Playback failed permanently for: ${songToPlay.path}',
             retryError,
             stack,
           );
           _showErrorSnackBar(
-            'Playback failed: Unable to load or play "${song.title}". Please verify the file is not corrupted.',
-            (l10n) => l10n.playbackFailedCorrupted(song.title),
+            'Playback failed: Unable to load or play "${songToPlay.title}". Please verify the file is not corrupted.',
+            (l10n) => l10n.playbackFailedCorrupted(songToPlay.title),
           );
           rethrow;
         }
