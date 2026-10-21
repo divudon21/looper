@@ -7,6 +7,8 @@ class _SearchHeader extends StatelessWidget {
   final ValueChanged<String> onSubmitted;
   final VoidCallback onClear;
   final VoidCallback onBack;
+  final bool searchYouTube;
+  final ValueChanged<bool> onYouTubeToggle;
 
   const _SearchHeader({
     super.key,
@@ -16,6 +18,8 @@ class _SearchHeader extends StatelessWidget {
     required this.onSubmitted,
     required this.onClear,
     required this.onBack,
+    required this.searchYouTube,
+    required this.onYouTubeToggle,
   });
 
   @override
@@ -73,6 +77,21 @@ class _SearchHeader extends StatelessWidget {
                   contentPadding: const EdgeInsets.symmetric(vertical: 13),
                 ),
               ),
+            ),
+          ),
+          // YouTube Music toggle button
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: IconButton(
+              icon: Icon(
+                LucideIcons.music,
+                size: 22,
+                color: searchYouTube
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.white54,
+              ),
+              tooltip: 'YouTube Music',
+              onPressed: () => onYouTubeToggle(!searchYouTube),
             ),
           ),
         ],

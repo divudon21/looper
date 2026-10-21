@@ -21,6 +21,7 @@ import 'package:looper_player/features/playlists/presentation/screens/playlist_v
 import 'package:looper_player/features/search/domain/artist_credits.dart';
 import 'package:looper_player/features/search/domain/lyric_snippet.dart';
 import 'package:looper_player/features/search/presentation/screens/search_view.dart';
+import 'package:looper_player/features/youtube_music/presentation/providers/youtube_search_provider.dart';
 import 'package:looper_player/l10n/app_localizations.dart';
 import 'package:looper_player/ui/widgets/common/app_loading_indicator.dart';
 import 'package:looper_player/ui/widgets/common/optimized_image.dart';
@@ -55,6 +56,7 @@ class _AndroidSearchTabState extends ConsumerState<AndroidSearchTab> {
   // while the next keystroke's query is still loading, so the list updates
   // in place instead of blinking to a spinner.
   SearchResults? _shown;
+  bool _searchYouTube = false; // YouTube Music search toggle
 
   @override
   void initState() {
@@ -76,6 +78,10 @@ class _AndroidSearchTabState extends ConsumerState<AndroidSearchTab> {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () {
       ref.read(searchQueryProvider.notifier).set(value);
+      // Also search YouTube if toggle is on
+      if (_searchYouTube && value.trim().isNotEmpty) {
+        ref.read(youtubeSearchProvider.notifier).search(value);
+      }
     });
   }
 
@@ -136,6 +142,7 @@ class _AndroidSearchTabState extends ConsumerState<AndroidSearchTab> {
     final l10n = context.l10n;
     final query = ref.watch(searchQueryProvider);
     final resultsAsync = ref.watch(searchResultsProvider);
+    final ytState = ref.watch(youtubeSearchProvider); // Watch YouTube state
 
     // Keeps the field in sync when the query changes from outside it (a
     // Recent Searches chip). A new query also means a new result set, so any
@@ -158,14 +165,14 @@ class _AndroidSearchTabState extends ConsumerState<AndroidSearchTab> {
     final Widget body;
     if (query.isEmpty) {
       body = const _SearchIdle();
-    } else if (results == null) {
+    } else if (results == null && !(_searchYouTube && ytState.results.isNotEmpty)) {
       body = resultsAsync.hasError
           ? Center(child: Text(l10n.errorWithDetails('${resultsAsync.error}')))
           : const AppLoadingIndicator();
-    } else if (results.isEmpty) {
+    } else if (results != null && results.isEmpty && !(_searchYouTube && ytState.results.isNotEmpty)) {
       body = _NoResults(query: query);
     } else {
-      final counts = _countsOf(results);
+      final counts = results != null ? _countsOf(results) : <_SearchKind, int>{};
       // A selection is always shown against the full song list, and a kind
       // whose matches vanished on the last keystroke falls back to All.
       final kind = selecting
@@ -183,15 +190,35 @@ class _AndroidSearchTabState extends ConsumerState<AndroidSearchTab> {
               },
             ),
           Expanded(
-            child: _SearchResultsBody(
-              results: results,
-              query: query,
-              kind: kind,
-              selected: _selected,
-              onShowKind: (next) => setState(() => _kind = next),
-              onToggle: _toggle,
-              onSelectAll: () => _selectAll(results.songs),
-              onRemember: _remember,
+            child: Column(
+              children: [
+                Expanded(
+                  child: _SearchResultsBody(
+                    results: results ?? SearchResults(
+                      songs: [],
+                      albums: [],
+                      artists: [],
+                    ),
+                    query: query,
+                    kind: kind,
+                    selected: _selected,
+                    onShowKind: (next) => setState(() => _kind = next),
+                    onToggle: _toggle,
+                    onSelectAll: () => _selectAll(results?.songs ?? []),
+                    onRemember: _remember,
+                  ),
+                ),
+                // YouTube Music section
+                if (_searchYouTube && (ytState.isLoading || ytState.results.isNotEmpty))
+                  _YouTubeResultsSection(
+                    ytState: ytState,
+                    query: query,
+                    onPlay: (song) {
+                      _remember();
+                      ref.read(playbackProvider.notifier).play(song);
+                    },
+                  ),
+              ],
             ),
           ),
         ],
@@ -229,6 +256,14 @@ class _AndroidSearchTabState extends ConsumerState<AndroidSearchTab> {
                       onSubmitted: (_) => _remember(),
                       onClear: _clearQuery,
                       onBack: _back,
+                      searchYouTube: _searchYouTube,
+                      onYouTubeToggle: (value) {
+                        setState(() => _searchYouTube = value);
+                        // If enabling, trigger YouTube search immediately
+                        if (value && _controller.text.trim().isNotEmpty) {
+                          ref.read(youtubeSearchProvider.notifier).search(_controller.text);
+                        }
+                      },
                     ),
             ),
             SizedBox(
@@ -259,3 +294,149 @@ Map<_SearchKind, int> _countsOf(SearchResults results) => {
     _SearchKind.playlists: results.playlists.length,
   if (results.genres.isNotEmpty) _SearchKind.genres: results.genres.length,
 };
+
+/// YouTube Music results section widget
+class _YouTubeResultsSection extends StatelessWidget {
+  final YouTubeSearchState ytState;
+  final String query;
+  final ValueChanged<Song> onPlay;
+
+  const _YouTubeResultsSection({
+    required this.ytState,
+    required this.query,
+    required this.onPlay,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 300),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(
+              children: [
+                Icon(
+                  LucideIcons.music,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'YouTube Music',
+                  style: AppFonts.jostStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                if (ytState.isLoading)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+          ),
+          if (ytState.error != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Error: ${ytState.error}',
+                style: AppFonts.jostStyle(
+                  color: Colors.redAccent,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: ytState.results.length,
+              itemBuilder: (context, index) {
+                final song = ytState.results[index];
+                return _YouTubeSongTile(
+                  song: song,
+                  query: query,
+                  onTap: () => onPlay(song),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Individual YouTube song tile
+class _YouTubeSongTile extends StatelessWidget {
+  final Song song;
+  final String query;
+  final VoidCallback onTap;
+
+  const _YouTubeSongTile({
+    required this.song,
+    required this.query,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: song.artPath != null
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Image.network(
+                song.artPath!,
+                width: 48,
+                height: 48,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  width: 48,
+                  height: 48,
+                  color: Colors.white12,
+                  child: const Icon(LucideIcons.music, size: 24),
+                ),
+              ),
+            )
+          : Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white12,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Icon(LucideIcons.music, size: 24),
+            ),
+      title: Text(
+        song.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppFonts.jostStyle(color: Colors.white, fontSize: 14),
+      ),
+      subtitle: Text(
+        song.artist ?? 'Unknown Artist',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppFonts.jostStyle(
+          color: Colors.white60,
+          fontSize: 12,
+        ),
+      ),
+      trailing: Icon(
+        LucideIcons.play,
+        size: 20,
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      onTap: onTap,
+    );
+  }
+}
