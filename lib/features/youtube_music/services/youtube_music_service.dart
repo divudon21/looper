@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
@@ -16,11 +17,11 @@ class YouTubeMusicService {
   final Duration _cacheExpiry = const Duration(hours: 5); // Refresh before expiry
   
   // Multiple YouTube API clients to try (fallback strategy)
-  // Based on youtube_explode_dart best practices
+  // Based on youtube_explode_dart best practices and community feedback
   final List<YoutubeApiClient> _clients = [
     YoutubeApiClient.ios,
-    YoutubeApiClient.android,
-    YoutubeApiClient.web,
+    YoutubeApiClient.androidVr,
+    YoutubeApiClient.safari,
   ];
 
   /// Initialize the service
@@ -62,9 +63,10 @@ class YouTubeMusicService {
     }
 
     // Try each client until one works
-    for (final client in _clients) {
+    for (int i = 0; i < _clients.length; i++) {
+      final client = _clients[i];
       try {
-        debugPrint('[YouTubeMusicService] Trying client: ${client.name}');
+        debugPrint('[YouTubeMusicService] Trying client ${i + 1}/${_clients.length}');
         
         final manifest = await _yt.videos.streamsClient.getManifest(
           videoId,
@@ -87,7 +89,7 @@ class YouTubeMusicService {
           return url;
         }
       } catch (e) {
-        debugPrint('[YouTubeMusicService] Client ${client.name} failed: $e');
+        debugPrint('[YouTubeMusicService] Client ${i + 1} failed: $e');
         continue; // Try next client
       }
     }
@@ -110,8 +112,8 @@ class YouTubeMusicService {
   /// Validate if stream URL is accessible
   Future<bool> _validateStreamUrl(String url) async {
     try {
-      final client = HttpClient();
-      final request = await client.headUrl(Uri.parse(url));
+      final httpClient = HttpClient();
+      final request = await HttpClient().openUrl('HEAD', Uri.parse(url));
       final response = await request.close();
       await response.drain();
       
