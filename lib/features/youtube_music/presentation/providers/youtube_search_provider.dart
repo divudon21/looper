@@ -27,41 +27,54 @@ class YouTubeSearchState {
   }
 }
 
-/// Provider for YouTube search functionality
-class YouTubeSearchNotifier extends StateNotifier<YouTubeSearchState> {
+/// Provider for YouTube search functionality using ChangeNotifier
+class YouTubeSearchNotifier extends ChangeNotifier {
   final YouTubePlayerIntegration _ytIntegration;
+  YouTubeSearchState _state = const YouTubeSearchState();
 
-  YouTubeSearchNotifier(this._ytIntegration) : super(const YouTubeSearchState());
+  YouTubeSearchState get state => _state;
+
+  YouTubeSearchNotifier(this._ytIntegration);
 
   /// Search YouTube Music
   Future<void> search(String query) async {
     if (query.trim().isEmpty) {
-      state = const YouTubeSearchState();
+      _state = const YouTubeSearchState();
+      notifyListeners();
       return;
     }
 
-    state = state.copyWith(isLoading: true, error: null);
+    _state = _state.copyWith(isLoading: true, error: null);
+    notifyListeners();
 
     try {
       final results = await _ytIntegration.searchAsSongs(query);
-      state = YouTubeSearchState(results: results, isLoading: false);
+      _state = YouTubeSearchState(results: results, isLoading: false);
+      notifyListeners();
     } catch (e) {
-      state = YouTubeSearchState(
+      _state = YouTubeSearchState(
         isLoading: false,
         error: e.toString(),
         results: [],
       );
+      notifyListeners();
     }
   }
 
   /// Clear results
   void clear() {
-    state = const YouTubeSearchState();
+    _state = const YouTubeSearchState();
+    notifyListeners();
   }
 }
 
 /// Provider for YouTube search state
 final youtubeSearchProvider =
-    StateNotifierProvider<YouTubeSearchNotifier, YouTubeSearchState>((ref) {
+    ChangeNotifierProvider<YouTubeSearchNotifier>((ref) {
   return YouTubeSearchNotifier(YouTubePlayerIntegration());
 });
+
+/// Helper extension to get notifier from provider
+extension YouTubeSearchProviderX on YouTubeSearchNotifier {
+  YouTubeSearchNotifier get notifier => this;
+}
