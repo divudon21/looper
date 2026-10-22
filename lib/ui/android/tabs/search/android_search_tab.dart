@@ -80,7 +80,7 @@ class _AndroidSearchTabState extends ConsumerState<AndroidSearchTab> {
       ref.read(searchQueryProvider.notifier).set(value);
       // Also search YouTube if toggle is on
       if (_searchYouTube && value.trim().isNotEmpty) {
-        ref.read(youtubeSearchProvider.notifier).search(value);
+        searchYouTube(ref, value);
       }
     });
   }
@@ -261,7 +261,7 @@ class _AndroidSearchTabState extends ConsumerState<AndroidSearchTab> {
                         setState(() => _searchYouTube = value);
                         // If enabling, trigger YouTube search immediately
                         if (value && _controller.text.trim().isNotEmpty) {
-                          ref.read(youtubeSearchProvider.notifier).search(_controller.text);
+                          searchYouTube(ref, _controller.text);
                         }
                       },
                     ),

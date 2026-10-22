@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:looper_player/features/library/domain/models/models.dart';
 import 'package:looper_player/features/youtube_music/services/youtube_player_integration.dart';
@@ -8,69 +7,61 @@ class YouTubeSearchState {
   final bool isLoading;
   final List<Song> results;
   final String? error;
+  final String query;
 
   const YouTubeSearchState({
     this.isLoading = false,
     this.results = const [],
     this.error,
+    this.query = '',
   });
 
   YouTubeSearchState copyWith({
     bool? isLoading,
     List<Song>? results,
     String? error,
+    String? query,
   }) {
     return YouTubeSearchState(
       isLoading: isLoading ?? this.isLoading,
       results: results ?? this.results,
       error: error,
+      query: query ?? this.query,
     );
   }
 }
 
+/// Provider for YouTube search state
+final youtubeSearchProvider = StateProvider<YouTubeSearchState>((ref) {
+  return const YouTubeSearchState();
+});
+
 /// Provider for YouTube search functionality
-class YouTubeSearchNotifier extends ChangeNotifier {
-  final YouTubePlayerIntegration _ytIntegration;
-  YouTubeSearchState _state = const YouTubeSearchState();
+final youtubeSearchService = Provider<YouTubePlayerIntegration>((ref) {
+  return YouTubePlayerIntegration();
+});
 
-  YouTubeSearchState get state => _state;
-
-  YouTubeSearchNotifier(this._ytIntegration);
-
-  /// Search YouTube Music
-  Future<void> search(String query) async {
-    if (query.trim().isEmpty) {
-      _state = const YouTubeSearchState();
-      notifyListeners();
-      return;
-    }
-
-    _state = _state.copyWith(isLoading: true, error: null);
-    notifyListeners();
-
-    try {
-      final results = await _ytIntegration.searchAsSongs(query);
-      _state = YouTubeSearchState(results: results, isLoading: false);
-      notifyListeners();
-    } catch (e) {
-      _state = YouTubeSearchState(
-        isLoading: false,
-        error: e.toString(),
-        results: [],
-      );
-      notifyListeners();
-    }
+/// Search YouTube Music - standalone function
+Future<void> searchYouTube(WidgetRef ref, String query) async {
+  final service = ref.read(youtubeSearchService);
+  final stateProvider = ref.read(youtubeSearchProvider.notifier);
+  
+  if (query.trim().isEmpty) {
+    stateProvider.state = const YouTubeSearchState();
+    return;
   }
 
-  /// Clear results
-  void clear() {
-    _state = const YouTubeSearchState();
-    notifyListeners();
+  stateProvider.state = stateProvider.state.copyWith(isLoading: true, error: null, query: query);
+
+  try {
+    final results = await service.searchAsSongs(query);
+    stateProvider.state = YouTubeSearchState(results: results, isLoading: false, query: query);
+  } catch (e) {
+    stateProvider.state = YouTubeSearchState(
+      isLoading: false,
+      error: e.toString(),
+      results: [],
+      query: query,
+    );
   }
 }
-
-/// Provider for YouTube search state
-final youtubeSearchProvider =
-    ChangeNotifierProvider<YouTubeSearchNotifier>((ref) {
-  return YouTubeSearchNotifier(YouTubePlayerIntegration());
-});
