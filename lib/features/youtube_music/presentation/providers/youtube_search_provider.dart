@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:looper_player/features/library/domain/models/models.dart';
 import 'package:looper_player/features/youtube_music/services/youtube_player_integration.dart';
@@ -27,7 +28,7 @@ class YouTubeSearchState {
   }
 }
 
-/// Provider for YouTube search functionality using ChangeNotifier
+/// Provider for YouTube search functionality
 class YouTubeSearchNotifier extends ChangeNotifier {
   final YouTubePlayerIntegration _ytIntegration;
   YouTubeSearchState _state = const YouTubeSearchState();
@@ -73,8 +74,3 @@ final youtubeSearchProvider =
     ChangeNotifierProvider<YouTubeSearchNotifier>((ref) {
   return YouTubeSearchNotifier(YouTubePlayerIntegration());
 });
-
-/// Helper extension to get notifier from provider
-extension YouTubeSearchProviderX on YouTubeSearchNotifier {
-  YouTubeSearchNotifier get notifier => this;
-}
