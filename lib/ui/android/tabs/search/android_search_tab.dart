@@ -80,7 +80,7 @@ class _AndroidSearchTabState extends ConsumerState<AndroidSearchTab> {
       ref.read(searchQueryProvider.notifier).set(value);
       // Also search YouTube if toggle is on
       if (_searchYouTube && value.trim().isNotEmpty) {
-        searchYouTube(ref, value);
+        ref.read(youTubeSearchProvider.notifier).search(value);
       }
     });
   }
@@ -142,7 +142,7 @@ class _AndroidSearchTabState extends ConsumerState<AndroidSearchTab> {
     final l10n = context.l10n;
     final query = ref.watch(searchQueryProvider);
     final resultsAsync = ref.watch(searchResultsProvider);
-    final ytState = ref.watch(youtubeSearchProvider); // Watch YouTube state
+    final ytState = ref.watch(youTubeSearchProvider); // Watch YouTube state
 
     // Keeps the field in sync when the query changes from outside it (a
     // Recent Searches chip). A new query also means a new result set, so any
@@ -261,7 +261,7 @@ class _AndroidSearchTabState extends ConsumerState<AndroidSearchTab> {
                         setState(() => _searchYouTube = value);
                         // If enabling, trigger YouTube search immediately
                         if (value && _controller.text.trim().isNotEmpty) {
-                          searchYouTube(ref, _controller.text);
+                          ref.read(youTubeSearchProvider.notifier).search(_controller.text);
                         }
                       },
                     ),

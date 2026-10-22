@@ -1,6 +1,8 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:looper_player/features/library/domain/models/models.dart';
 import 'package:looper_player/features/youtube_music/services/youtube_player_integration.dart';
+
+part 'youtube_search_provider.g.dart';
 
 /// State for YouTube search
 class YouTubeSearchState {
@@ -31,37 +33,37 @@ class YouTubeSearchState {
   }
 }
 
-/// Provider for YouTube search state
-final youtubeSearchProvider = StateProvider<YouTubeSearchState>((ref) {
-  return const YouTubeSearchState();
-});
+@Riverpod(keepAlive: true)
+class YouTubeSearch extends _$YouTubeSearch {
+  final YouTubePlayerIntegration _ytIntegration = YouTubePlayerIntegration();
 
-/// Provider for YouTube search functionality
-final youtubeSearchService = Provider<YouTubePlayerIntegration>((ref) {
-  return YouTubePlayerIntegration();
-});
+  @override
+  YouTubeSearchState build() => const YouTubeSearchState();
 
-/// Search YouTube Music - standalone function
-Future<void> searchYouTube(WidgetRef ref, String query) async {
-  final service = ref.read(youtubeSearchService);
-  final stateProvider = ref.read(youtubeSearchProvider.notifier);
-  
-  if (query.trim().isEmpty) {
-    stateProvider.state = const YouTubeSearchState();
-    return;
+  /// Search YouTube Music
+  Future<void> search(String query) async {
+    if (query.trim().isEmpty) {
+      state = const YouTubeSearchState();
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, error: null, query: query);
+
+    try {
+      final results = await _ytIntegration.searchAsSongs(query);
+      state = YouTubeSearchState(results: results, isLoading: false, query: query);
+    } catch (e) {
+      state = YouTubeSearchState(
+        isLoading: false,
+        error: e.toString(),
+        results: [],
+        query: query,
+      );
+    }
   }
 
-  stateProvider.state = stateProvider.state.copyWith(isLoading: true, error: null, query: query);
-
-  try {
-    final results = await service.searchAsSongs(query);
-    stateProvider.state = YouTubeSearchState(results: results, isLoading: false, query: query);
-  } catch (e) {
-    stateProvider.state = YouTubeSearchState(
-      isLoading: false,
-      error: e.toString(),
-      results: [],
-      query: query,
-    );
+  /// Clear results
+  void clear() {
+    state = const YouTubeSearchState();
   }
 }
